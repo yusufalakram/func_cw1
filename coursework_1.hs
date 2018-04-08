@@ -163,13 +163,20 @@ game = loop start
 ------------------------- PART 4: Solving the game
 
 
--- talk' :: Dialogue -> [(Event,[Int])]
-talk' = undefined
+talk' :: Dialogue -> [(Event,[Int])]
+talk' (End _)       = []
+talk' (Action _ e)  = [(e,[])]
+talk' (Choice _ xs) = search ([ ([y],d) | (y,(_,d)) <- zip [1..] xs])
 
--- talk :: Dialogue -> [(Event,String)]
+search :: [([Int], Dialogue)] -> [(Event, [Int])]
+search []                   = []
+search ((x,Choice _ ys):xs) = (search [ ((y:x),d) | (y,(_,d)) <- zip [1..] ys]) ++ (search xs)
+search ((x,Action _ e):xs)  = [(e,x)] ++ (search xs)
+search ((x,End _ ):xs)      = [] ++ (search xs)
+
+talk :: Dialogue -> [(Event,String)]
 talk = undefined
 
-{-
 event :: String -> Event
 event s _ = Game 0 ["Event: " ++ s] []
 
@@ -180,21 +187,37 @@ testDialogue = Choice "Morpheus opens his palms"
 
 testTalk' :: [(Game,[Int])]
 testTalk' = [ (e Won,xs) | (e,xs) <- talk' testDialogue]
-
+{-
 testTalk :: [(Game,String)]
 testTalk = [ (e Won,str) | (e,str) <- talk testDialogue]
 -}
 
 -------------------------
-
 extend :: Map -> (Node,[Int]) -> [(Node,[Int])]
-extend = undefined
+extend m (n,path) = [ (i, x:path) | (x, i) <- (zip [1..] (bothWays n m)) ]
 
 travel' :: Map -> [(Node,[Int])] -> [(Node,[Int])] -> [(Node,[Int])]
-travel' = undefined
+travel' m xs []         = xs
+travel' m xs (y:ys)
+    | (visited y xs) = travel' m xs ys
+    | otherwise      = travel' m (snoc y xs) ((extend m y) ++ ys)
+    where visited :: (Node,[Int]) -> [(Node,[Int])] -> Bool
+          visited _ []     = False
+          visited x (y:ys)
+              | fst x == fst y = True
+              | otherwise      = visited x ys
+          snoc :: a -> [a] -> [a]
+          snoc x []     = [x]
+          snoc x (y:ys) = y:snoc x ys
 
 travel :: Map -> Game -> [(Game,String)]
-travel = undefined
+travel m (Game location p ps) = createGames (travel' m [(location,[])] (extend m (location,[]))) p ps
+  where createGames :: [(Node,[Int])] -> Party -> [Party] -> [(Game,String)]
+        createGames [] _ _          = []
+        createGames ((x,y):xs) p ps = ((Game x p ps),(createDirections x y)) : (createGames xs p ps)
+
+        createDirections :: Node -> [Int] -> String
+        createDirections x xs = "Travel to " ++ (locations!!x) ++ ": " ++ (unwords [show i ++ " " | i<-(reverse xs)])
 
 -------------------------
 
