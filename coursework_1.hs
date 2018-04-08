@@ -166,7 +166,6 @@ game = loop start
 
 ------------------------- PART 4: Solving the game
 
-
 talk' :: Dialogue -> [(Event,[Int])]
 talk' (End _)       = []
 talk' (Action _ e)  = [(e,[])]
@@ -198,7 +197,6 @@ testTalk' = [ (e Won,xs) | (e,xs) <- talk' testDialogue]
 testTalk :: [(Game,String)]
 testTalk = [ (e Won,str) | (e,str) <- talk testDialogue]
 
-
 -------------------------
 extend :: Map -> (Node,[Int]) -> [(Node,[Int])]
 extend m (n,path) = [ (i, x:path) | (x, i) <- (zip [1..] (bothWays n m)) ]
@@ -224,19 +222,40 @@ travel m (Game location p ps) = createGames (travel' m [(location,[])] (extend m
         createDirections x xs = "Travel to " ++ (locations!!x) ++ ": " ++ (unwords [show i ++ " " | i<-(reverse xs)])
 
 -------------------------
+member :: Eq a => [a] -> a -> Bool
+member    []  _ = False
+member (x:xs) y = (x==y) || (member xs y)
+
+members :: Eq a => [a] -> [a] -> Bool
+members xs    []  = True
+members xs (y:ys) = member xs y && members xs ys
 
 act :: Game -> [(Game,String)]
-act = undefined
+act Won           = []
+act (Game n p ps) = concat [ (createInstructions dialogue party (Game n p ps)) | (party,dialogue)<-dialogues, members (merge p (ps!!n)) party]
+  where createInstructions :: Dialogue -> Party -> Game -> [(Game,String)]
+        createInstructions d p g = [ ((event g),("\n" ++ "Talk to " ++ (p!!0) ++ "\n" ++ instructions)) | (event,instructions) <- (talk d), (suitable g event)]
 
--- suitable :: Game -> Event -> Bool
-suitable = undefined
+suitable :: Game -> Event -> Bool
+suitable game event = checkSuitable (event game) game
+  where checkSuitable :: Game -> Game -> Bool
+        checkSuitable Won _ = True
+        checkSuitable (Game n x xs) (Game m y ys)
+            | (length x) > (length y)                     = True
+            | (length (concat xs)) > (length (concat ys)) = True
+            | otherwise                                   = False
+
+-- SOLVE FUNCTION DOESN'T WORK
 
 solve :: IO ()
-solve = undefined
+solve = do
+  putStrLn (solveLoop (start,""))
   where
-    --solveLoop :: Game -> String
-    --solveLoop :: (Game,String) -> String
-
+    solveLoop :: (Game,String) -> String
+    solveLoop (Won,s) = s
+    solveLoop (g,s)
+        | ((length (act g)) >= 1)    = solveLoop ((fst ((act g)!!0)),(s++(snd ((act g)!!0))))
+        | otherwise                  = solveLoop ((fst ([(game,directions) | (game,directions)<-(travel theMap g), (length (act game) >= 1)]!!0)),(s++(snd ([(game,directions) | (game,directions)<-(travel theMap g), (length (act game) >= 1)]!!0))))
 
 
 ------------------------- Game data
