@@ -2,6 +2,10 @@
 
 -------------------------
 
+snoc :: a -> [a] -> [a]
+snoc x []     = [x]
+snoc x (y:ys) = y:snoc x ys
+
 merge :: Ord a => [a] -> [a] -> [a]
 merge xs [] = xs
 merge [] ys = ys
@@ -167,18 +171,21 @@ talk' :: Dialogue -> [(Event,[Int])]
 talk' (End _)       = []
 talk' (Action _ e)  = [(e,[])]
 talk' (Choice _ xs) = search ([ ([y],d) | (y,(_,d)) <- zip [1..] xs])
-
-search :: [([Int], Dialogue)] -> [(Event, [Int])]
-search []                   = []
-search ((x,Choice _ ys):xs) = (search [ ((y:x),d) | (y,(_,d)) <- zip [1..] ys]) ++ (search xs)
-search ((x,Action _ e):xs)  = [(e,x)] ++ (search xs)
-search ((x,End _ ):xs)      = [] ++ (search xs)
+  where search :: [([Int], Dialogue)] -> [(Event, [Int])]
+        search []                   = []
+        search ((x,Choice _ ys):xs) = (search [ ((snoc y x),d) | (y,(_,d)) <- zip [1..] ys]) ++ (search xs)
+        search ((x,Action _ e):xs)  = [(e,x)] ++ (search xs)
+        search ((x,End _ ):xs)      = [] ++ (search xs)
 
 talk :: Dialogue -> [(Event,String)]
-talk = undefined
+talk d = formatTalk (talk' d)
+  where formatTalk :: [(Event,[Int])] -> [(Event,String)]
+        formatTalk xs = [(event, "In the dialogue, choose: " ++ (unwords [show i ++ " " | i<-directions])) | (event,directions) <- xs]
+
 
 event :: String -> Event
 event s _ = Game 0 ["Event: " ++ s] []
+
 
 testDialogue :: Dialogue
 testDialogue = Choice "Morpheus opens his palms"
@@ -187,10 +194,10 @@ testDialogue = Choice "Morpheus opens his palms"
 
 testTalk' :: [(Game,[Int])]
 testTalk' = [ (e Won,xs) | (e,xs) <- talk' testDialogue]
-{-
+
 testTalk :: [(Game,String)]
 testTalk = [ (e Won,str) | (e,str) <- talk testDialogue]
--}
+
 
 -------------------------
 extend :: Map -> (Node,[Int]) -> [(Node,[Int])]
@@ -206,9 +213,6 @@ travel' m xs (y:ys)
           visited x (y:ys)
               | fst x == fst y = True
               | otherwise      = visited x ys
-          snoc :: a -> [a] -> [a]
-          snoc x []     = [x]
-          snoc x (y:ys) = y:snoc x ys
 
 travel :: Map -> Game -> [(Game,String)]
 travel m (Game location p ps) = createGames (travel' m [(location,[])] (extend m (location,[]))) p ps
